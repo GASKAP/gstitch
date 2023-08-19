@@ -1,0 +1,66 @@
+# -*- coding: utf-8 -*-
+import os
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.io import fits
+
+# plt.ion()
+# cm = plt.get_cmap('inferno')
+# cm.set_bad(color='black')
+# imkw = dict(origin='lower', interpolation='none', cmap=cm)
+
+class stitch(object):
+    def __init__(self, hdr=None, path_data=None):
+        super(stitch, self).__init__()
+        self.hdr = hdr if hdr is not None else None
+        self.path_data = path_data if path_data is not None else "./"
+        print("path data =", self.path_data)
+        if self.hdr is not None : 
+            dv = self.hdr["CDELT3"] / 1000.
+            crval = self.hdr["CRVAL3"] / 1000.
+            ctype = self.hdr["CTYPE3"]
+            crpix = self.hdr["CRPIX3"] - 1
+            
+            naxis = self.hdr["NAXIS3"]
+            
+            x = np.arange(naxis)
+            if ctype == 'FELO-LSR':
+                clight = 2.99792458e5 # km/s 
+                restfreq = self.hdr['RESTFREQ']
+                crval2 = restfreq/(crval/clight + 1)
+                df = -dv*crval2**2/(clight*restfreq)                
+                f = (x-crpix)*df+crval2                
+                self.v = clight*(restfreq - f)/f #optical definition
+            else:
+                self.v = (x-crpix)*dv+crval
+
+    def run(self):
+        print("Read mosaic coverage")
+        print("Start stitching")
+
+    # def write_fits(self, gaussian, fileout=None, hdr=False):
+    #     if not fileout : fileout = self.filename[:-5] + "_ROHSA.fits" if self.filename is not None else "cube_ROHSA.fits"
+
+    #     result = self.return_result_cube(gaussian)
+
+    #     hdu = fits.PrimaryHDU(result)
+    #     if self.hdr is not None : hdu.header = self.hdr
+    #     hdulist = fits.HDUList([hdu])
+    #     hdulist.writeto(fileout, overwrite=True)        
+    #     return 0
+                
+        
+if __name__ == '__main__':    
+    print("Test gstitch")
+    #Load data
+    path="/priv/avatar/amarchal/GASS/data/"
+    filename = "GASS_HI_LMC_foreground_cube.fits"
+    hdu = fits.open(path+filename)
+    hdr = hdu[0].header
+
+    # #Call ROHSApy
+    core = stitch(hdr=hdr, path_data=path)
+    core.run()
+    # core.cube2dat()
+    # core.run("parameters.txt", nohup=False)
