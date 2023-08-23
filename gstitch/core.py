@@ -7,14 +7,21 @@ from astropy.io import fits
 from astropy import wcs
 from reproject import reproject_from_healpix, reproject_interp
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.convolution import Gaussian1DKernel, Gaussian2DKernel
 from astropy.convolution import convolve, convolve_fft
 from scipy import interpolate
 from tqdm import tqdm
 
+#tmp
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib import ticker
+from matplotlib.ticker import ScalarFormatter
+
+
 def set_wcs(sizex,sizey, projx, projy, cdelt, GLON, GLAT):
     w           = wcs.WCS(naxis=2)
-    w.wcs.crpix = [sizex/2,sizey/2]
+    w.wcs.crpix = [sizey/2,sizex/2]
     w.wcs.crval = [GLON, GLAT]
     w.wcs.cdelt = np.array([-cdelt,cdelt])
     w.wcs.ctype = [projx, projy]
@@ -54,12 +61,32 @@ class stitch(object):
             else:
                 self.v = (x-crpix)*dv+crval
 
-    def run(self):
-        return 0
 
-    def get_vrange(self):
+    def get_v(self, hdr=None):
+        dv = hdr["CDELT3"] / 1000.
+        crval = hdr["CRVAL3"] / 1000.
+        ctype = hdr["CTYPE3"]
+        crpix = hdr["CRPIX3"] - 1
+        
+        naxis = hdr["NAXIS3"]
+        
+        x = np.arange(naxis)
+        if ctype == 'FELO-LSR':
+            clight = 2.99792458e5 # km/s 
+            restfreq = hdr['RESTFREQ']
+            crval2 = restfreq/(crval/clight + 1)
+            df = -dv*crval2**2/(clight*restfreq)                
+            f = (x-crpix)*df+crval2                
+            v = clight*(restfreq - f)/f #optical definition
+        else:
+            v = (x-crpix)*dv+crval
+
+        return v
+
+
+    def get_vrange(self, filename=None):
         #Read fitsnames
-        my_file = open("./files.txt", "r")        
+        my_file = open(filename, "r")        
         # reading the file
         data = my_file.read()
         fitsnames = data.split("\n")[:-1]
@@ -69,7 +96,7 @@ class stitch(object):
         for i in np.arange(len(fitsnames)):
             #Load data
             fitsname = fitsnames[i].split("/")[2]
-            print(fitsname)
+            # print(fitsname)
             hdu = fits.open(self.path + fitsnames[i])
             hdr = hdu[0].header
 
@@ -91,14 +118,15 @@ class stitch(object):
             else:
                 v = (x-crpix)*dv+crval
                 
-            print(np.min(v),np.max(v))
+            # print(np.min(v),np.max(v))
             vmin.append(np.min(v))
             vmax.append(np.max(v))
         return np.min(vmin), np.max(vmax)
 
-    def write_rms_maps(self):
+
+    def write_rms_maps(self, filename):
         #Read fitsnames
-        my_file = open("./files.txt", "r")        
+        my_file = open(filename, "r")        
         # reading the file
         data = my_file.read()
         fitsnames = data.split("\n")[:-1]
@@ -120,9 +148,10 @@ class stitch(object):
             hdulist = fits.HDUList([hdu0])
             hdulist.writeto(pathout + fitsname[:-5] + "_RMS.fits", overwrite=True)
 
-    def write_Tbmax_maps(self):
+
+    def write_Tbmax_maps(self, filename):
         #Read fitsnames
-        my_file = open("./files.txt", "r")        
+        my_file = open(filename, "r")        
         # reading the file
         data = my_file.read()
         fitsnames = data.split("\n")[:-1]
@@ -143,10 +172,11 @@ class stitch(object):
             hdu0 = fits.PrimaryHDU(Tbmax, header=hdr)
             hdulist = fits.HDUList([hdu0])
             hdulist.writeto(pathout + fitsname[:-5] + "_Tbmax.fits", overwrite=True)
+
         
-    def reproj_rms_maps(self):
+    def reproj_rms_maps(self, filename, target_header=None, size=None):
         #Read fitsnames
-        my_file = open("./files.txt", "r")        
+        my_file = open(filename, "r")        
         # reading the file
         data = my_file.read()
         fitsnames = data.split("\n")[:-1]
@@ -160,28 +190,45 @@ class stitch(object):
             hdr = hdu[0].header
             w = wcs2D(hdr)
             rms = hdu[0].data
-            #reproject
-            #Header large mosaic
-            glon=52.940314716173; glat=-72.14763039399
-            reso = 0.005
-            sizey = int(10000); sizex = int(8000)
-            target_wcs = set_wcs(sizex,sizey,'RA---TAN','DEC--TAN', reso, glon, glat)
-            target_hdr = target_wcs.to_header()
-            target_hdr["CRPIX1"] -= 460
-            target_hdr["CRPIX2"] -= 3230
-            sizex-=3230+1350; sizey-=460+2970
-            
-            reproj_rms, footprint = reproject_interp((rms,w.to_header()), target_hdr, shape_out=(sizex,sizey))
+            #reproject                        
+            reproj_rms, footprint = reproject_interp((rms,w.to_header()), target_header, shape_out=size)
+
             #write on disk
             pathout=self.path+"tmp/RMS/reproj/"
-            hdu0 = fits.PrimaryHDU(reproj_rms, header=target_hdr)
+            hdu0 = fits.PrimaryHDU(reproj_rms, header=target_header)
             hdulist = fits.HDUList([hdu0])
             hdulist.writeto(pathout + fitsname[:-5] + "_RMS_large.fits", overwrite=True)
 
 
-    def regrid(self, beam=None):
+    def stack_reproj_rms_maps(self, filename, target_header=None):
         #Read fitsnames
-        my_file = open("./files.txt", "r")        
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+        
+        rms = []
+        for i in np.arange(len(fitsnames)):
+            #Load data
+            fitsname = fitsnames[i].split("/")[2]
+            print(fitsname)
+            hdu = fits.open(self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits")
+            hdr = hdu[0].header
+            w = wcs2D(hdr)
+            rms.append(hdu[0].data)
+        stack = np.nansum(rms,0)
+
+        #write on disk
+        pathout=self.path+"tmp/RMS/reproj/"
+        hdu0 = fits.PrimaryHDU(stack, header=target_header)
+        hdulist = fits.HDUList([hdu0])
+        hdulist.writeto(pathout + "STACK" + "_RMS_large.fits", overwrite=True)
+
+
+    def regrid(self, filename, beam=None):
+        #Read fitsnames
+        my_file = open(filename, "r")        
         # reading the file
         data = my_file.read()
         fitsnames = data.split("\n")[:-1]
@@ -217,7 +264,7 @@ class stitch(object):
             reso = reso_nquist.to(u.deg).value
             ratio = (reso/cdelt).value
             sizey = int(hdr["NAXIS2"]/ratio); sizex = int(hdr["NAXIS1"]/ratio)
-            target_wcs = set_wcs(sizex,sizey,hdr["CTYPE1"],hdr["CTYPE2"], reso, xc_world, yc_world)
+            target_wcs = set_wcs(sizey,sizex,hdr["CTYPE1"],hdr["CTYPE2"], reso, xc_world, yc_world)
             target_header = target_wcs.to_header()
 
             print("Original shape = ", cube.shape)
@@ -226,7 +273,6 @@ class stitch(object):
             reproj_cube = np.zeros((cube.shape[0],sizey,sizex))
             print("Start spatial convolution")
             for i in np.arange(cube.shape[0]):
-            # for i in np.arange(2):
                 if fwhm_input == fwhm_output:
                     # print("Keep native " + str(beam.value))
                     conv = cube[i]
@@ -239,12 +285,10 @@ class stitch(object):
             #Update original header                                                                           
             hdr["CRPIX1"] = target_header["CRPIX1"]
             hdr["CRPIX2"] = target_header["CRPIX2"]
-            # hdr["CRVAL3"] = xnew[0]
             hdr["CRVAL1"] = target_header["CRVAL1"]
             hdr["CRVAL2"] = target_header["CRVAL2"]
             hdr["CDELT1"] = target_header["CDELT1"]
             hdr["CDELT2"] = target_header["CDELT2"]
-            # hdr["CDELT3"] = dvnew*1.e3
             hdr["NAXIS1"] = reproj_cube.shape[2]
             hdr["NAXIS2"] = reproj_cube.shape[1]
             hdr["NAXIS3"] = reproj_cube.shape[0]
@@ -255,22 +299,233 @@ class stitch(object):
             hdulist = fits.HDUList([hdu0])
             hdulist.writeto(path + "tmp/PPV/" + str(int(beam.value)) +  "arcsec/" + fitsname[:-5] + "_" + str(int(beam.value)) + ".fits", overwrite=True)
 
+
+    def regrid_v(self, filename, target_dv=None, vmin=None, vmax=None):
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+        
+        for k in np.arange(len(fitsnames)):
+            #Load data
+            fitsname = fitsnames[k].split("/")[3]
+            print(fitsname)
+            hdu = fits.open(self.path + fitsnames[k])
+            hdr = hdu[0].header
+            w = wcs2D(hdr)
+            dv = np.abs(hdr["CDELT3"]*1.e-3)
+            shape = hdu[0].data.shape
+            cube = hdu[0].data
+
+            #Regrid velocity axis to the SMC pilot 1 resolution                                                                   
+            fwhm_factor = np.sqrt(8*np.log(2))
+            current_resolution = dv * u.km/u.s
+            target_resolution = target_dv #ALL TO THIS V RES
+            pixel_scale = dv * u.km/u.s
+            gaussian_width = ((target_resolution**2 - current_resolution**2)**0.5 /
+                              pixel_scale / fwhm_factor)
+            if target_dv.value > dv:
+                kernel = Gaussian1DKernel(gaussian_width.value)
+            else:
+                kernel = None
+
+            #Get v array cube
+            dv = hdr["CDELT3"] / 1000.
+            crval = hdr["CRVAL3"] / 1000.
+            ctype = hdr["CTYPE3"]
+            crpix = hdr["CRPIX3"] - 1
+            
+            naxis = hdr["NAXIS3"]
+            
+            x = np.arange(naxis)
+            if ctype == 'FELO-LSR':
+                clight = 2.99792458e5 # km/s 
+                restfreq = hdr['RESTFREQ']
+                crval2 = restfreq/(crval/clight + 1)
+                df = -dv*crval2**2/(clight*restfreq)                
+                f = (x-crpix)*df+crval2                
+                v = clight*(restfreq - f)/f #optical definition
+            else:
+                v = (x-crpix)*dv+crval
+            
+            #Convolution v and interpolation
+            print("interp vmin = ", vmin, "interp vmax = ", vmax, "vmin = ", np.min(v), "vmax = ", np.max(v))
+            uu = np.arange(vmin,vmax+dv, target_resolution.value)
+            #get position vmin and vmax                                                                              
+            idx_min = np.where(uu > np.min(v))[0][0]
+            idx_max = np.where(uu < np.max(v))[0][::-1][0]
+
+            print("idmin", uu[idx_min], "idmax", uu[idx_max])
+            print("cube shape = ", cube.shape)
+
+            #Regrid v  
+            regrid = np.zeros((len(uu),cube.shape[1],cube.shape[2]))
+            print("cube regrid shape = ", regrid.shape)
+            
+            for i in np.arange(regrid.shape[1]):
+                for j in np.arange(regrid.shape[2]):
+                    if cube[0,i,j] != cube[0,i,j]: continue
+                    if cube[0,i,j] == 0.: continue #FIXME IF BUG
+                    if target_dv.value < np.abs(dv):
+                        y = cube[:,i,j]
+                    else:
+                        y = convolve_fft(cube[:,i,j], kernel, allow_huge=True)
+                    f = interpolate.interp1d(v, y)
+                    regrid[idx_min:idx_max,i,j] = f(uu[idx_min:idx_max])            
+
+            #Update original header                                                                                           
+            hdr["CRVAL3"] = uu[0] * 1.e3
+            hdr["CDELT3"] = target_dv.value*1.e3
+            hdr["NAXIS1"] = regrid.shape[2]
+            hdr["NAXIS2"] = regrid.shape[1]
+            hdr["NAXIS3"] = regrid.shape[0]
+
+            #Write outpout                                                                                                  
+            print("Write output " + fitsname + " file on disk")
+            hdu0 = fits.PrimaryHDU(regrid, header=hdr)
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(path + "tmp/PPV/45arcsec/1kms/" + fitsname[:-5] + "_" + str(round(target_dv.value,2)) 
+                            + ".fits", overwrite=True)
+
+
+    def stich_v(self, filename, target_header=None, size=None, ID=None, disk=False):
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+
+        weights = []
+        for i in np.arange(len(fitsnames)):
+            fitsname = fitsnames[i].split("/")[2]
+            #Open reprojected map
+            fnamen = self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits"
+            print("Opening ", fnamen)
+            hdu = fits.open(fnamen)
+            field_rms = hdu[0].data
+            field_rms[field_rms == 0.] = np.nan
+            weights.append(1./field_rms)
+
+        rfields = []
+        for i in np.arange(len(fitsnames)):
+            fitsname = fitsnames[i].split("/")[2]
+            #Open reprojected map
+            fnamen = self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits"
+            print("Opening ", fnamen)
+            hdu = fits.open(fnamen)
+            field_rms = hdu[0].data
+            field_rms[field_rms == 0.] = np.nan
+
+            #Load data
+            fname = self.path + "tmp/PPV/45arcsec/1kms/" + fitsname[:-5] + "_45_1.0.fits"
+            print("Opening ", fname)
+            hdu = fits.open(fname)
+            hdr = hdu[0].header
+            v = self.get_v(hdr)
+            w = wcs2D(hdr)
+            print("shape = ", hdu[0].data.shape)
+            print("Stitching v = ", v[ID])
+            field = hdu[0].data[ID]
+            field[field == 0.] = np.nan
+
+            #Reproject                        
+            rfield, footprint = reproject_interp((field,w.to_header()), target_header, shape_out=size)
+            rfields.append(rfield)            
+
+        wfields = np.array([weights[i]*rfields[i] for i in np.arange(len(fitsnames))])
+        cfield = np.nansum(wfields,0) / np.nansum(weights,0)
+            
+        if disk == True:
+            #Write on disk
+            pathout=self.path+"tmp/PPV/45arcsec/1kms/combined/"
+            hdu0 = fits.PrimaryHDU(cfield, header=target_header)
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(pathout + "LMC_comined_v0.fits", overwrite=True)
+        
+        return cfield
+
+
+    def stich_all(self, filename, target_header=None, size=None, ID=None, disk=False, nv=None):
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+
+        weights = []
+        for i in np.arange(len(fitsnames)):
+            fitsname = fitsnames[i].split("/")[2]
+            #Open reprojected map
+            fnamen = self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits"
+            print("Opening ", fnamen)
+            hdu = fits.open(fnamen)
+            field_rms = hdu[0].data
+            field_rms[field_rms == 0.] = np.nan
+            weights.append(1./field_rms)
+
+        cube = np.zeros((nv,size[0],size[1]))
+        for k in np.arange(nv):
+            cube[k] = self.stich_v(filename, target_header, size, ID=k, disk=False)
+            
+        return cube
                     
 if __name__ == '__main__':    
-    print("Test gstitch")
+    print("gstitch work in progress")
 
-    # #Call ROHSApy
+    #Header large mosaic
+    glon = 288; glat = -40
+    c = SkyCoord(glon*u.deg, glat*u.deg, frame='galactic')
+    reso = 0.00333333
+    sizex = 5400; sizey = 10200
+    target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
+    target_header = target_wcs.to_header()
+    size = (sizex,sizey)
+
+    #LMC only for GASKAP                                                                           
+    c = SkyCoord(75.895*u.deg, -69.676*u.deg, frame="icrs")
+    reso = 0.00333333
+    sizex = 5400; sizey = 4500
+    target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
+    target_header = target_wcs.to_header()
+    size = (sizex,sizey)
+
+    #Init gstitch
     path="/priv/myrtle1/gaskap/downloads/"
     core = stitch(hdr=None, path=path)
-    core.run()
     #Regrid the data to 30' but Nyquist sampling
-    vmin, vmax = core.get_vrange()
-    core.regrid(beam=30*u.arcsec)
-    stop    
-    
+    filename="./files_LMC.txt"
+    filename_regrid="./files_30.txt"
+    vmin, vmax = core.get_vrange(filename)
+    print("vmin = ", vmin, "vmax = ", vmax)
     # core.write_rms_maps()
-    # core.write_Tbmax_maps()
-    # core.reproj_rms_maps()
+    # core.reproj_rms_maps(filename, target_header, size)
+    # core.stack_reproj_rms_maps(filename, target_header)
+    # core.regrid(filename, beam=45*u.arcsec)
+    # core.regrid_v(filename_regrid, target_dv=1*u.km/u.s, vmin=vmin, vmax=vmax)
+    field = core.stich_v(filename, target_header, size, ID=140, disk=False)
 
-    print("Start stitching")
+    field_norm = np.arcsinh(field/np.nanmax(field) * 50)
 
+    stop
+
+    #Plot asinh Tb map
+    fig = plt.figure(figsize=(8.5, 10))
+    ax = fig.add_axes([0.1,0.1,0.78,0.8], projection=target_wcs)
+    ax.set_xlabel(r"RA", fontsize=18.)
+    ax.set_ylabel(r"DEC", fontsize=18.)
+    cm_inf = plt.get_cmap('cividis')
+    cm_inf.set_bad(color='white')
+    cm_inf.set_under(color='black')
+    imkw_inf = dict(origin='lower', interpolation='none', cmap=cm_inf)
+    img = ax.imshow(field_norm, vmin=0., vmax=4.5, **imkw_inf)
+    colorbar_ax = fig.add_axes([0.89, 0.11, 0.02, 0.78])
+    cbar = fig.colorbar(img, cax=colorbar_ax)
+    cbar.ax.tick_params(labelsize=14.) 
+    cbar.set_label(r"$\rm{a}\sinh(T_b/T_b^{\rm max}\times 50)$", fontsize=18.) 
+    plt.savefig("plot/" + 'Tb_example_v_285.85.png', format='png', bbox_inches='tight', pad_inches=0.02, dpi=400)
+    
+    stop
