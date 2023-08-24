@@ -117,8 +117,7 @@ class stitch(object):
                 v = clight*(restfreq - f)/f #optical definition
             else:
                 v = (x-crpix)*dv+crval
-                
-            # print(np.min(v),np.max(v))
+
             vmin.append(np.min(v))
             vmax.append(np.max(v))
         return np.min(vmin), np.max(vmax)
@@ -149,7 +148,81 @@ class stitch(object):
             hdulist.writeto(pathout + fitsname[:-5] + "_RMS.fits", overwrite=True)
 
 
-    def write_Tbmax_maps(self, filename):
+    # def write_Tbmax_maps(self, filename):
+    #     #Read fitsnames
+    #     my_file = open(filename, "r")        
+    #     # reading the file
+    #     data = my_file.read()
+    #     fitsnames = data.split("\n")[:-1]
+    #     my_file.close()
+        
+    #     for i in np.arange(len(fitsnames)):
+    #         #Load data
+    #         fitsname = fitsnames[i].split("/")[2]
+    #         print(fitsname)
+    #         hdu = fits.open(self.path + fitsnames[i])
+    #         hdr = hdu[0].header
+    #         cube = hdu[0].data
+            
+    #         #Calculate rms map
+    #         Tbmax = np.nanmax(cube,0)
+    #         #Write RMS map
+    #         pathout=self.path+"tmp/Tbmax/"
+    #         hdu0 = fits.PrimaryHDU(Tbmax, header=hdr)
+    #         hdulist = fits.HDUList([hdu0])
+    #         hdulist.writeto(pathout + fitsname[:-5] + "_Tbmax.fits", overwrite=True)
+        
+    # def reproj_rms_maps(self, filename, target_header=None, size=None):
+    #     #Read fitsnames
+    #     my_file = open(filename, "r")        
+    #     # reading the file
+    #     data = my_file.read()
+    #     fitsnames = data.split("\n")[:-1]
+    #     my_file.close()
+        
+    #     for i in np.arange(len(fitsnames)):
+    #         #Load data
+    #         fitsname = fitsnames[i].split("/")[2]
+    #         print(fitsname)
+    #         hdu = fits.open(self.path + "tmp/RMS/" + fitsname[:-5]+"_RMS.fits")
+    #         hdr = hdu[0].header
+    #         w = wcs2D(hdr)
+    #         rms = hdu[0].data
+    #         #reproject                        
+    #         reproj_rms, footprint = reproject_interp((rms,w.to_header()), target_header, shape_out=size)
+
+    #         #write on disk
+    #         pathout=self.path+"tmp/RMS/reproj/"
+    #         hdu0 = fits.PrimaryHDU(reproj_rms, header=target_header)
+    #         hdulist = fits.HDUList([hdu0])
+    #         hdulist.writeto(pathout + fitsname[:-5] + "_RMS_large.fits", overwrite=True)
+
+    # def stack_reproj_rms_maps(self, filename, target_header=None):
+    #     #Read fitsnames
+    #     my_file = open(filename, "r")        
+    #     # reading the file
+    #     data = my_file.read()
+    #     fitsnames = data.split("\n")[:-1]
+    #     my_file.close()
+        
+    #     rms = []
+    #     for i in np.arange(len(fitsnames)):
+    #         #Load data
+    #         fitsname = fitsnames[i].split("/")[2]
+    #         print(fitsname)
+    #         hdu = fits.open(self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits")
+    #         hdr = hdu[0].header
+    #         w = wcs2D(hdr)
+    #         rms.append(hdu[0].data)
+    #     stack = np.nansum(rms,0)
+
+    #     #write on disk
+    #     pathout=self.path+"tmp/RMS/reproj/"
+    #     hdu0 = fits.PrimaryHDU(stack, header=target_header)
+    #     hdulist = fits.HDUList([hdu0])
+    #     hdulist.writeto(pathout + "STACK" + "_RMS_large.fits", overwrite=True)
+
+    def reproj_avePB_maps(self, filename, target_header=None, size=None):
         #Read fitsnames
         my_file = open(filename, "r")        
         # reading the file
@@ -163,44 +236,19 @@ class stitch(object):
             print(fitsname)
             hdu = fits.open(self.path + fitsnames[i])
             hdr = hdu[0].header
-            cube = hdu[0].data
-            
-            #Calculate rms map
-            Tbmax = np.nanmax(cube,0)
-            #Write RMS map
-            pathout=self.path+"tmp/Tbmax/"
-            hdu0 = fits.PrimaryHDU(Tbmax, header=hdr)
-            hdulist = fits.HDUList([hdu0])
-            hdulist.writeto(pathout + fitsname[:-5] + "_Tbmax.fits", overwrite=True)
-
-        
-    def reproj_rms_maps(self, filename, target_header=None, size=None):
-        #Read fitsnames
-        my_file = open(filename, "r")        
-        # reading the file
-        data = my_file.read()
-        fitsnames = data.split("\n")[:-1]
-        my_file.close()
-        
-        for i in np.arange(len(fitsnames)):
-            #Load data
-            fitsname = fitsnames[i].split("/")[2]
-            print(fitsname)
-            hdu = fits.open(self.path + "tmp/RMS/" + fitsname[:-5]+"_RMS.fits")
-            hdr = hdu[0].header
             w = wcs2D(hdr)
-            rms = hdu[0].data
+            avePB = hdu[0].data
             #reproject                        
-            reproj_rms, footprint = reproject_interp((rms,w.to_header()), target_header, shape_out=size)
+            reproj_rms, footprint = reproject_interp((avePB,w.to_header()), target_header, shape_out=size)
 
             #write on disk
-            pathout=self.path+"tmp/RMS/reproj/"
+            pathout=self.path+"tmp/avePB/reproj/"
             hdu0 = fits.PrimaryHDU(reproj_rms, header=target_header)
             hdulist = fits.HDUList([hdu0])
-            hdulist.writeto(pathout + fitsname[:-5] + "_RMS_large.fits", overwrite=True)
+            hdulist.writeto(pathout + fitsname[:-5] + "_avePB_large.fits", overwrite=True)
 
 
-    def stack_reproj_rms_maps(self, filename, target_header=None):
+    def stack_reproj_avePB_maps(self, filename, target_header=None):
         #Read fitsnames
         my_file = open(filename, "r")        
         # reading the file
@@ -208,25 +256,26 @@ class stitch(object):
         fitsnames = data.split("\n")[:-1]
         my_file.close()
         
-        rms = []
+        avePB = []
         for i in np.arange(len(fitsnames)):
             #Load data
             fitsname = fitsnames[i].split("/")[2]
-            print(fitsname)
-            hdu = fits.open(self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits")
+            hdu = fits.open(self.path + "tmp/avePB/reproj/" + fitsname[:-5] + "_avePB_large.fits")
             hdr = hdu[0].header
             w = wcs2D(hdr)
-            rms.append(hdu[0].data)
-        stack = np.nansum(rms,0)
+            avePB.append(hdu[0].data)
+
+        fields = [avePB[i] * avePB[i] for i in np.arange(len(avePB))]
+        stack = np.nansum(np.array(fields),0) / np.nansum(np.array(avePB),0)
 
         #write on disk
-        pathout=self.path+"tmp/RMS/reproj/"
+        pathout=self.path+"tmp/avePB/reproj/"
         hdu0 = fits.PrimaryHDU(stack, header=target_header)
         hdulist = fits.HDUList([hdu0])
-        hdulist.writeto(pathout + "STACK" + "_RMS_large.fits", overwrite=True)
+        hdulist.writeto(pathout + filename[:-4] + "_large.fits", overwrite=True)
 
 
-    def regrid(self, filename, beam=None):
+    def regrid(self, filename, beam=None, conv=True, verbose=False, check=False):
         #Read fitsnames
         my_file = open(filename, "r")        
         # reading the file
@@ -237,7 +286,7 @@ class stitch(object):
         for k in np.arange(len(fitsnames)):
             #Load data
             fitsname = fitsnames[k].split("/")[2]
-            print(fitsname)
+            if verbose == True: print(fitsname)
             hdu = fits.open(self.path + fitsnames[k])
             hdr = hdu[0].header
             w = wcs2D(hdr)
@@ -267,20 +316,24 @@ class stitch(object):
             target_wcs = set_wcs(sizey,sizex,hdr["CTYPE1"],hdr["CTYPE2"], reso, xc_world, yc_world)
             target_header = target_wcs.to_header()
 
-            print("Original shape = ", cube.shape)
-            print("New shape = ", (cube.shape[0],sizey,sizex))
+            if verbose == True: print("Original shape = ", cube.shape)
+            if verbose == True: print("New shape = ", (cube.shape[0],sizey,sizex))
             
             reproj_cube = np.zeros((cube.shape[0],sizey,sizex))
-            print("Start spatial convolution")
-            for i in np.arange(cube.shape[0]):
-                if fwhm_input == fwhm_output:
-                    # print("Keep native " + str(beam.value))
-                    conv = cube[i]
-                else:
-                    # print("Convolve to " + str(beam.value))
-                    conv = convolve_fft(cube[i], kernel, allow_huge=True)
-                reproj, footprint = reproject_interp((conv,w.to_header()), target_header, shape_out=(sizey,sizex))
-                reproj_cube[i] = reproj
+            if check == False:
+                if verbose == True: print("Start spatial convolution")
+                for i in tqdm(np.arange(cube.shape[0])):
+                    if fwhm_input == fwhm_output:
+                        # print("Keep native " + str(beam.value))
+                        fconv = cube[i]
+                    else:
+                        # print("Convolve to " + str(beam.value))
+                        if conv == True:
+                            fconv = convolve_fft(cube[i], kernel, allow_huge=True)
+                        else:
+                            fconv = cube[i]
+                    reproj, footprint = reproject_interp((fconv,w.to_header()), target_header, shape_out=(sizey,sizex))
+                    reproj_cube[i] = reproj
                 
             #Update original header                                                                           
             hdr["CRPIX1"] = target_header["CRPIX1"]
@@ -294,13 +347,13 @@ class stitch(object):
             hdr["NAXIS3"] = reproj_cube.shape[0]
 
             #Write outpout                                                                                     
-            print("Write output " + fitsname + " file on disk")
+            if verbose == True: print("Write output " + fitsname + " file on disk")
             hdu0 = fits.PrimaryHDU(reproj_cube, header=hdr)
             hdulist = fits.HDUList([hdu0])
-            hdulist.writeto(path + "tmp/PPV/" + str(int(beam.value)) +  "arcsec/" + fitsname[:-5] + "_" + str(int(beam.value)) + ".fits", overwrite=True)
+            hdulist.writeto(self.path + "tmp/PPV/" + str(int(beam.value)) +  "arcsec/" + fitsname[:-5] + "_" + str(int(beam.value)) + ".fits", overwrite=True)
 
 
-    def regrid_v(self, filename, target_dv=None, vmin=None, vmax=None):
+    def regrid_v(self, filename, target_dv=None, vmin=None, vmax=None, beam=None, check=False):
         #Read fitsnames
         my_file = open(filename, "r")        
         # reading the file
@@ -310,9 +363,9 @@ class stitch(object):
         
         for k in np.arange(len(fitsnames)):
             #Load data
-            fitsname = fitsnames[k].split("/")[3]
+            fitsname = fitsnames[k].split("/")[2]
             print(fitsname)
-            hdu = fits.open(self.path + fitsnames[k])
+            hdu = fits.open(self.path + "tmp/PPV/" + str(int(beam.value)) +  "arcsec/" + fitsname[:-5] + "_" + str(int(beam.value)) + ".fits")
             hdr = hdu[0].header
             w = wcs2D(hdr)
             dv = np.abs(hdr["CDELT3"]*1.e-3)
@@ -320,7 +373,7 @@ class stitch(object):
             cube = hdu[0].data
 
             #Regrid velocity axis to the SMC pilot 1 resolution                                                                   
-            fwhm_factor = np.sqrt(8*np.log(2))
+            fwhm_factor = np.sqrt(8*np.log(2)) #FIXMEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
             current_resolution = dv * u.km/u.s
             target_resolution = target_dv #ALL TO THIS V RES
             pixel_scale = dv * u.km/u.s
@@ -352,7 +405,7 @@ class stitch(object):
             
             #Convolution v and interpolation
             print("interp vmin = ", vmin, "interp vmax = ", vmax, "vmin = ", np.min(v), "vmax = ", np.max(v))
-            uu = np.arange(vmin,vmax+dv, target_resolution.value)
+            uu = np.arange(vmin,vmax+target_resolution.value, target_resolution.value) #FIXME IF BUG
             #get position vmin and vmax                                                                              
             idx_min = np.where(uu > np.min(v))[0][0]
             idx_max = np.where(uu < np.max(v))[0][::-1][0]
@@ -363,17 +416,18 @@ class stitch(object):
             #Regrid v  
             regrid = np.zeros((len(uu),cube.shape[1],cube.shape[2]))
             print("cube regrid shape = ", regrid.shape)
-            
-            for i in np.arange(regrid.shape[1]):
-                for j in np.arange(regrid.shape[2]):
-                    if cube[0,i,j] != cube[0,i,j]: continue
-                    if cube[0,i,j] == 0.: continue #FIXME IF BUG
-                    if target_dv.value < np.abs(dv):
-                        y = cube[:,i,j]
-                    else:
-                        y = convolve_fft(cube[:,i,j], kernel, allow_huge=True)
-                    f = interpolate.interp1d(v, y)
-                    regrid[idx_min:idx_max,i,j] = f(uu[idx_min:idx_max])            
+
+            if check == False:
+                for i in tqdm(np.arange(regrid.shape[1])):
+                    for j in np.arange(regrid.shape[2]):
+                        if cube[0,i,j] != cube[0,i,j]: continue
+                        if cube[0,i,j] == 0.: continue #FIXME IF BUG
+                        if target_dv.value < np.abs(dv):
+                            y = cube[:,i,j]
+                        else:
+                            y = convolve_fft(cube[:,i,j], kernel, allow_huge=True)
+                        f = interpolate.interp1d(v, y)
+                        regrid[idx_min:idx_max,i,j] = f(uu[idx_min:idx_max])            
 
             #Update original header                                                                                           
             hdr["CRVAL3"] = uu[0] * 1.e3
@@ -386,12 +440,21 @@ class stitch(object):
             print("Write output " + fitsname + " file on disk")
             hdu0 = fits.PrimaryHDU(regrid, header=hdr)
             hdulist = fits.HDUList([hdu0])
-            hdulist.writeto(path + "tmp/PPV/45arcsec/1kms/" + fitsname[:-5] + "_" + str(round(target_dv.value,2)) 
-                            + ".fits", overwrite=True)
+            hdulist.writeto(self.path + "tmp/PPV/" + str(int(beam.value)) +  "arcsec/1kms/" 
+                            + fitsname[:-5] + "_" + str(round(target_dv.value,2)) + ".fits", 
+                            overwrite=True)
 
 
-    def stich_v(self, filename, target_header=None, size=None, ID=None, disk=False):
-        #Read fitsnames
+    def stich_v(self, filename=None, filename_avePB=None, target_header=None, size=None, ID=None, 
+                disk=False, verbose=False, target_dv=None, beam=None):
+        #Read fitsnames avePB
+        my_file = open(filename_avePB, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames_avePB = data.split("\n")[:-1]
+        my_file.close()
+
+        #Read fitsnames avePB
         my_file = open(filename, "r")        
         # reading the file
         data = my_file.read()
@@ -399,35 +462,28 @@ class stitch(object):
         my_file.close()
 
         weights = []
-        for i in np.arange(len(fitsnames)):
-            fitsname = fitsnames[i].split("/")[2]
+        for i in np.arange(len(fitsnames_avePB)):
+            fitsname = fitsnames_avePB[i].split("/")[2]
             #Open reprojected map
-            fnamen = self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits"
-            print("Opening ", fnamen)
+            fnamen = self.path + "tmp/avePB/reproj/" + fitsname[:-5] + "_avePB_large.fits"
+            if verbose == True: print("Opening ", fnamen)
             hdu = fits.open(fnamen)
-            field_rms = hdu[0].data
-            field_rms[field_rms == 0.] = np.nan
-            weights.append(1./field_rms)
+            field_avePB = hdu[0].data
+            field_avePB[field_avePB == 0.] = np.nan
+            weights.append(field_avePB)
 
         rfields = []
         for i in np.arange(len(fitsnames)):
             fitsname = fitsnames[i].split("/")[2]
-            #Open reprojected map
-            fnamen = self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits"
-            print("Opening ", fnamen)
-            hdu = fits.open(fnamen)
-            field_rms = hdu[0].data
-            field_rms[field_rms == 0.] = np.nan
-
             #Load data
-            fname = self.path + "tmp/PPV/45arcsec/1kms/" + fitsname[:-5] + "_45_1.0.fits"
-            print("Opening ", fname)
+            fname = self.path + "tmp/PPV/" + str(int(beam.value)) + "arcsec/1kms/" + fitsname[:-5] + "_" + str(round(target_dv.value,2)) + ".fits"
+            if verbose == True: print("Opening ", fname)
             hdu = fits.open(fname)
             hdr = hdu[0].header
             v = self.get_v(hdr)
             w = wcs2D(hdr)
-            print("shape = ", hdu[0].data.shape)
-            print("Stitching v = ", v[ID])
+            if verbose == True: print("shape = ", hdu[0].data.shape)
+            if verbose == True: print("Stitching v = ", v[ID])
             field = hdu[0].data[ID]
             field[field == 0.] = np.nan
 
@@ -437,6 +493,7 @@ class stitch(object):
 
         wfields = np.array([weights[i]*rfields[i] for i in np.arange(len(fitsnames))])
         cfield = np.nansum(wfields,0) / np.nansum(weights,0)
+        cfield[cfield==0.] = np.nan
             
         if disk == True:
             #Write on disk
@@ -448,7 +505,8 @@ class stitch(object):
         return cfield
 
 
-    def stich_all(self, filename, target_header=None, size=None, ID=None, disk=False, nv=None):
+    def stich_all(self, filename, target_header=None, size=None, ID_start=None, ID_end=None, 
+                  disk=False):
         #Read fitsnames
         my_file = open(filename, "r")        
         # reading the file
@@ -460,53 +518,76 @@ class stitch(object):
         for i in np.arange(len(fitsnames)):
             fitsname = fitsnames[i].split("/")[2]
             #Open reprojected map
-            fnamen = self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits"
+            fnamen = self.path + "tmp/avePB/reproj/" + fitsname[:-5] + "_avePB_large.fits"
             print("Opening ", fnamen)
             hdu = fits.open(fnamen)
-            field_rms = hdu[0].data
-            field_rms[field_rms == 0.] = np.nan
-            weights.append(1./field_rms)
+            field_avePB = hdu[0].data
+            field_avePB[field_avePB == 0.] = np.nan
+            weights.append(field_avePB)
 
+        nv = ID_end - ID_start
         cube = np.zeros((nv,size[0],size[1]))
-        for k in np.arange(nv):
-            cube[k] = self.stich_v(filename, target_header, size, ID=k, disk=False)
+        for k in tqdm(np.arange(nv)):
+            cube[k] = self.stich_v(filename, target_header, size, ID=ID_start+k, disk=False, verbose=False)
+
+        if disk == True:
+            #Write on disk
+            pathout=self.path+"tmp/PPV/45arcsec/1kms/combined/"
+            hdu0 = fits.PrimaryHDU(cube, header=target_header) #FIXME 3D header
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(pathout + "Tb_LMC_comined.fits", overwrite=True)            
             
         return cube
                     
 if __name__ == '__main__':    
     print("gstitch work in progress")
 
-    #Header large mosaic
-    glon = 288; glat = -40
-    c = SkyCoord(glon*u.deg, glat*u.deg, frame='galactic')
-    reso = 0.00333333
-    sizex = 5400; sizey = 10200
-    target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
-    target_header = target_wcs.to_header()
-    size = (sizex,sizey)
-
-    #LMC only for GASKAP                                                                           
-    c = SkyCoord(75.895*u.deg, -69.676*u.deg, frame="icrs")
-    reso = 0.00333333
-    sizex = 5400; sizey = 4500
-    target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
-    target_header = target_wcs.to_header()
-    size = (sizex,sizey)
+    # #Header large mosaic
+    # glon = 288; glat = -40
+    # c = SkyCoord(glon*u.deg, glat*u.deg, frame='galactic')
+    # reso = 0.00333333
+    # sizex = 5400; sizey = 10200
+    # target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
+    # target_header = target_wcs.to_header()
+    # size = (sizex,sizey)
 
     #Init gstitch
     path="/priv/myrtle1/gaskap/downloads/"
     core = stitch(hdr=None, path=path)
     #Regrid the data to 30' but Nyquist sampling
-    filename="./files_LMC.txt"
-    filename_regrid="./files_30.txt"
+    filename="./files_LMC-fg.txt"
+    filename_avePB="./files_LMC-fg_avePB.txt"
     vmin, vmax = core.get_vrange(filename)
     print("vmin = ", vmin, "vmax = ", vmax)
-    # core.write_rms_maps()
+    # core.write_rms_maps(filename)
     # core.reproj_rms_maps(filename, target_header, size)
     # core.stack_reproj_rms_maps(filename, target_header)
-    # core.regrid(filename, beam=45*u.arcsec)
-    # core.regrid_v(filename_regrid, target_dv=1*u.km/u.s, vmin=vmin, vmax=vmax)
-    field = core.stich_v(filename, target_header, size, ID=140, disk=False)
+
+    #START HERE
+
+    #LMC only for GASKAP                                                                           
+    c = SkyCoord(75.895*u.deg, -69.676*u.deg, frame="icrs")
+    reso = 0.00333333 * 2
+    sizex = int(5400 / 2); sizey = int(4500 / 2)
+    target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
+    target_header = target_wcs.to_header()
+    size = (sizex,sizey)
+
+    beam = 60*u.arcsec
+    target_dv = 1*u.km/u.s
+    conv = True
+    verbose = False
+    check = False
+
+    core.reproj_avePB_maps(filename_avePB, target_header, size)
+    core.stack_reproj_avePB_maps(filename_avePB, target_header)
+    core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
+    core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
+    # field = core.stich_v(filename, filename_avePB, target_header, size, ID=50, 
+    #                      disk=False, verbose=verbose, target_dv=target_dv, beam=beam)
+    # cube = core.stich_all(filename, target_header, size, ID_start=100, ID_end=110, disk=True)
+
+    stop
 
     field_norm = np.arcsinh(field/np.nanmax(field) * 50)
 
