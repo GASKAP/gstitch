@@ -357,7 +357,7 @@ class stitch(object):
             pixel_scale = dv * u.km/u.s
             gaussian_width = ((target_resolution**2 - current_resolution**2)**0.5 /
                               pixel_scale / fwhm_factor)
-            if target_dv.value > dv:
+            if target_dv.value >= dv:
                 kernel = Gaussian1DKernel(gaussian_width.value)
             else:
                 kernel = None
@@ -543,6 +543,99 @@ class stitch(object):
             hdulist = fits.HDUList([hdu0])
             hdulist.writeto(fileout, overwrite=True)            
 
+
+    def match_sd(self, path, fitsname, target_dv=None, vmin=None, vmax=None, beam=None, check=False, 
+                 target_header=None, size=None, disk=False, ID_start=None, ID_end=None):
+        #Load data
+        print(fitsname)
+        hdu = fits.open(path+fitsname)
+        hdr = hdu[0].header
+        w = wcs2D(hdr)
+        dv = np.abs(hdr["CDELT3"]*1.e-3)
+        shape = hdu[0].data.shape
+        cube = hdu[0].data
+        
+        #Regrid velocity axis to the SMC pilot 1 resolution                                                                   
+        fwhm_factor = np.sqrt(8*np.log(2))
+        current_resolution = 1. * u.km/u.s #resolution GASS
+        target_resolution = target_dv #ALL TO THIS V RES
+        pixel_scale = dv * u.km/u.s
+        gaussian_width = ((target_resolution**2 - current_resolution**2)**0.5 /
+                          pixel_scale / fwhm_factor)
+
+        if verbose == True: print("current resolution = ", current_resolution, 
+                                  "target resolution = ", target_dv.value)
+
+        if target_dv.value >= dv:
+            kernel = Gaussian1DKernel(gaussian_width.value)
+        else:
+            kernel = None
+            
+        v = self.get_v(hdr)
+            
+        #Convolution v and interpolation
+        print("interp vmin = ", vmin, "interp vmax = ", vmax, "vmin = ", np.min(v), "vmax = ", np.max(v))
+        uu = np.arange(vmin,vmax+target_resolution.value, target_resolution.value)
+        #get position vmin and vmax                                                                              
+        idx_min = np.where(uu > np.min(v))[0][0]
+        idx_max = np.where(uu < np.max(v))[0][::-1][0]
+        
+        print("idmin", uu[idx_min], "idmax", uu[idx_max])
+        print("cube shape = ", cube.shape)
+        
+        #Regrid v  
+        regrid = np.zeros((len(uu),cube.shape[1],cube.shape[2]))
+        print("cube regrid shape = ", regrid.shape)
+        
+        if check == False:
+            for i in tqdm(np.arange(regrid.shape[1])):
+                for j in np.arange(regrid.shape[2]):
+                    if target_dv.value <= current_resolution.value:
+                        y = cube[:,i,j]
+                    else:
+                        y = convolve_fft(cube[:,i,j], kernel, allow_huge=True)
+                    f = interpolate.interp1d(v, y)
+                    regrid[idx_min:idx_max,i,j] = f(uu[idx_min:idx_max])
+                
+        #Update original header                                                              
+        hdr["CRPIX3"] = 1
+        hdr["CRVAL3"] = uu[0] * 1.e3
+        hdr["CDELT3"] = target_dv.value*1.e3
+        hdr["NAXIS1"] = regrid.shape[2]
+        hdr["NAXIS2"] = regrid.shape[1]
+        hdr["NAXIS3"] = regrid.shape[0]
+
+        regrid = regrid[ID_start:ID_end] #WARNING
+    
+        #Spatial reprojection
+        reproj_cube = np.zeros((regrid.shape[0],size[0],size[1]))
+        if verbose == True: print(reproj_cube.shape)
+        if check == False:
+            if verbose == True: print("Start spatial convolution")
+            for i in tqdm(np.arange(regrid.shape[0])):
+                reproj, footprint = reproject_interp((regrid[i],w.to_header()), target_header, shape_out=size)
+                reproj_cube[i] = reproj
+                
+        #Update original header                                                                           
+        hdr["CRPIX1"] = target_header["CRPIX1"]
+        hdr["CRPIX2"] = target_header["CRPIX2"]
+        hdr["CRVAL1"] = target_header["CRVAL1"]
+        hdr["CRVAL2"] = target_header["CRVAL2"]
+        hdr["CDELT1"] = target_header["CDELT1"]
+        hdr["CDELT2"] = target_header["CDELT2"]
+        hdr["NAXIS1"] = reproj_cube.shape[2]
+        hdr["NAXIS2"] = reproj_cube.shape[1]
+        hdr["NAXIS3"] = reproj_cube.shape[0]
+       
+        if disk == True:
+            #Write outpout                                                                                                  
+            print("Write output " + fitsname + " file on disk")
+            hdu0 = fits.PrimaryHDU(reproj_cube, header=hdr)
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(self.path + "tmp/PPV/" + str(int(beam.value)) +  "arcsec/1kms/combined/" 
+                            + fitsname[:-5] + "_" + str(round(target_dv.value,2)) + ".fits", 
+                            overwrite=True)
+
                                 
 if __name__ == '__main__':    
     print("gstitch work in progress")
@@ -580,7 +673,7 @@ if __name__ == '__main__':
     beam = 60*u.arcsec
     target_dv = 1*u.km/u.s
     conv = True
-    verbose = False
+    verbose = True
     check = False
     disk = True
     fileout = path + "tmp/PPV/60arcsec/1kms/combined/Tb_combined_all_large.fits" 
@@ -589,6 +682,9 @@ if __name__ == '__main__':
     ID_start = 40#0
     ID_end = 92#len(v)
 
+    path_sd = "/priv/avatar/amarchal/GASS/data/"
+    fitsname_sd = "GASS_HI_LMC_foreground_cube.fits"
+
     # core.write_rms_maps(filename)
     # core.reproj_rms_maps(filename, target_header, size)
     # core.stack_reproj_rms_maps(filename, target_header)
@@ -596,9 +692,11 @@ if __name__ == '__main__':
     # core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
     # field = core.stich_v(filename, target_header, size, ID=65, disk=disk, verbose=verbose, 
     #                      target_dv=target_dv, beam=beam)
-    core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
-                   target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
-    
+    # core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
+    #                target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
+    core.match_sd(path_sd, fitsname_sd, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, 
+                  check=check, target_header=target_header, size=size, disk=disk, 
+                  ID_start=ID_start, ID_end=ID_end)
     stop
 
     field_norm = np.arcsinh(field/np.nanmax(field) * 50)

@@ -73,10 +73,20 @@ ID_start = 40#0
 ID_end = 92#len(v)
 
 #Open output cube
+path_sd = "/home/amarchal/public_html/gaskap/downloads/tmp/PPV/60arcsec/1kms/combined/"
+fitsname_sd = "GASS_HI_LMC_foreground_cube_1.0.fits"
+hdu0 = fits.open(path_sd+fitsname_sd)
+hdr0 = hdu0[0].header
+w0 = wcs2D(hdr0)
+cube_gass = hdu0[0].data
+
+#Open output cube
 hdu = fits.open(fileout)
 hdr = hdu[0].header
 w = wcs2D(hdr)
-cube = hdu[0].data
+cube_askap = hdu[0].data
+
+cube = np.where(cube_askap != cube_askap, cube_gass, cube_askap)
 
 #Image rgb                                                                                                                     
 img = np.zeros((cube.shape[0], cube.shape[1], cube.shape[2], 3), dtype=float)
