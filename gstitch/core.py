@@ -467,7 +467,11 @@ class stitch(object):
             hdu = fits.open(self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits")
             hdr = hdu[0].header
             w = wcs2D(hdr)
-            weights.append(1./hdu[0].data**2.)
+            rms = hdu[0].data
+            rms[rms < 1.e-2] = np.nan ###############FIXME
+            weight = 1./rms**2.
+            weight[weight != weight] = 0.
+            weights.append(weight)
 
         rfields = []
         for i in np.arange(len(fitsnames)):
@@ -482,15 +486,16 @@ class stitch(object):
             if verbose == True: print("shape = ", hdu[0].data.shape)
             if verbose == True: print("Stitching v = ", v[ID])
             field = hdu[0].data[ID]
-            field[field == 0.] = np.nan
+            # field[field != field] = 0. #################FIXME
 
             #Reproject                        
             rfield, footprint = reproject_interp((field,w.to_header()), target_header, shape_out=size)
+            # rfield = np.where(weights[i] != 0., rfield, np.nan)
             rfields.append(rfield)            
 
         wfields = np.array([weights[i]*rfields[i] for i in np.arange(len(fitsnames))])
         cfield = np.nansum(wfields,0) / np.nansum(weights,0)
-        cfield[cfield==0.] = np.nan
+        # cfield[cfield == 0.] = np.nan
             
         if disk == True:
             #Write on disk
@@ -645,10 +650,12 @@ if __name__ == '__main__':
     core = stitch(hdr=None, path=path)
     #Regrid the data to 30' but Nyquist sampling
     # filename="./files_LMC-fg.txt"
-    filename="./files_all_fg_tmp.txt"
-    filename_all="./files_all_fg_tmp.txt"
+    # filename="./files_all_fg_tmp.txt"
+    # filename_all="./files_all_fg_tmp.txt"
     # filename_avePB="./files_LMC-fg_avePB.txt"
-    vmin, vmax = core.get_vrange(filename_all)
+    filename="./FILES/files_all.txt"
+
+    vmin, vmax = core.get_vrange(filename)
     print("vmin = ", vmin, "vmax = ", vmax)
 
     #START HERE
@@ -673,15 +680,15 @@ if __name__ == '__main__':
     beam = 60*u.arcsec
     target_dv = 1*u.km/u.s
     conv = True
-    verbose = True
+    verbose = False
     check = False
     disk = True
-    fileout = path + "tmp/PPV/60arcsec/1kms/combined/Tb_combined_all_large.fits" 
-
+    fileout = path + "tmp/PPV/60arcsec/1kms/combined/Tb_combined_all_large_MG_-1.fits" 
     v = np.arange(vmin,vmax+target_dv.value, target_dv.value)
-    ID_start = 40#0
-    ID_end = 92#len(v)
-
+    
+    ID_start = 0#226#175#122 #0#40
+    ID_end = 121#297#225#174 #len(v)#92
+    
     path_sd = "/priv/avatar/amarchal/GASS/data/"
     fitsname_sd = "GASS_HI_LMC_foreground_cube.fits"
 
@@ -690,13 +697,13 @@ if __name__ == '__main__':
     # core.stack_reproj_rms_maps(filename, target_header)
     # core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
     # core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
-    # field = core.stich_v(filename, target_header, size, ID=65, disk=disk, verbose=verbose, 
+    # field = core.stich_v(filename, target_header, size, ID=148, disk=disk, verbose=True, 
     #                      target_dv=target_dv, beam=beam)
-    # core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
-    #                target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
-    core.match_sd(path_sd, fitsname_sd, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, 
-                  check=check, target_header=target_header, size=size, disk=disk, 
-                  ID_start=ID_start, ID_end=ID_end)
+    core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
+                   target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
+    # core.match_sd(path_sd, fitsname_sd, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, 
+    #               check=check, target_header=target_header, size=size, disk=disk, 
+    #               ID_start=ID_start, ID_end=ID_end)
     stop
 
     field_norm = np.arcsinh(field/np.nanmax(field) * 50)
