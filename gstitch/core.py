@@ -118,6 +118,11 @@ class stitch(object):
             else:
                 v = (x-crpix)*dv+crval
 
+            print(fitsname);
+            print(np.min(v));
+            print(np.max(v));
+            print();
+            
             vmin.append(np.min(v))
             vmax.append(np.max(v))
         return np.min(vmin), np.max(vmax)
@@ -646,59 +651,62 @@ if __name__ == '__main__':
     print("gstitch work in progress")
 
     #Init gstitch
-    path="/priv/myrtle1/gaskap/downloads/"
+    path="/priv/myrtle1/gaskap/public_html/downloads/"
     core = stitch(hdr=None, path=path)
     #Regrid the data to 30' but Nyquist sampling
-    # filename="./files_LMC-fg.txt"
-    # filename="./files_all_fg_tmp.txt"
-    # filename_all="./files_all_fg_tmp.txt"
-    # filename_avePB="./files_LMC-fg_avePB.txt"
-    filename="./FILES/files_all.txt"
-
+    filename="./FILES/files_LMC.txt"
+    # filename="./FILES/files_all_fg.txt"
+        
     vmin, vmax = core.get_vrange(filename)
     print("vmin = ", vmin, "vmax = ", vmax)
-
+    
     #START HERE
-
-    # #LMC only for GASKAP                                                                           
-    # c = SkyCoord(75.895*u.deg, -69.676*u.deg, frame="icrs")
-    # reso = 0.00333333 * 2
-    # sizex = int(5400 / 2); sizey = int(4500 / 2)
-    # target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
-    # target_header = target_wcs.to_header()
-    # size = (sizex,sizey)
-
-    #Header large mosaic
-    glon = 287.7; glat = -38.7
-    c = SkyCoord(glon*u.deg, glat*u.deg, frame='galactic')
+    #LMC only for GASKAP                                                                           
+    c = SkyCoord(75.895*u.deg, -69.676*u.deg, frame="icrs")
     reso = 0.00333333 * 2
-    sizex = int(5800 / 2); sizey = int(10200 / 2)
+    sizex = int(5400 / 2); sizey = int(4500 / 2)
     target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
     target_header = target_wcs.to_header()
     size = (sizex,sizey)
 
+    # #Header large mosaic
+    # glon = 287.7; glat = -38.7
+    # c = SkyCoord(glon*u.deg, glat*u.deg, frame='galactic')
+    # reso = 0.00333333 * 2
+    # sizex = int(5800 / 2); sizey = int(10200 / 2)
+    # target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
+    # target_header = target_wcs.to_header()
+    # size = (sizex,sizey)
+
     beam = 60*u.arcsec
     target_dv = 1*u.km/u.s
-    conv = True
+    conv = True 
     verbose = False
-    check = False
-    disk = True
-    fileout = path + "tmp/PPV/60arcsec/1kms/combined/Tb_combined_all_large_MG_-1.fits" 
+    check = False #no computation, check only output write
+    disk = True   #write output on disk
+    fileout = path + "tmp/PPV/60arcsec/1kms/combined/Tb_combined_LMC_full.fits" 
     v = np.arange(vmin,vmax+target_dv.value, target_dv.value)
     
-    ID_start = 0#226#175#122 #0#40
-    ID_end = 121#297#225#174 #len(v)#92
+    ID_start = 0
+    ID_end = len(v)
     
     path_sd = "/priv/avatar/amarchal/GASS/data/"
     fitsname_sd = "GASS_HI_LMC_foreground_cube.fits"
 
-    # core.write_rms_maps(filename)
-    # core.reproj_rms_maps(filename, target_header, size)
-    # core.stack_reproj_rms_maps(filename, target_header)
-    # core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
-    # core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
+    core.write_rms_maps(filename)
+    core.reproj_rms_maps(filename, target_header, size)
+    core.stack_reproj_rms_maps(filename, target_header)
+
+    core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
+    core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
+
+    stop
+    
     # field = core.stich_v(filename, target_header, size, ID=148, disk=disk, verbose=True, 
     #                      target_dv=target_dv, beam=beam)
+
+    stop
+
     core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
                    target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
     # core.match_sd(path_sd, fitsname_sd, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, 
