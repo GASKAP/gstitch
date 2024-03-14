@@ -693,28 +693,22 @@ if __name__ == '__main__':
     path_sd = "/priv/avatar/amarchal/GASS/data/"
     fitsname_sd = "GASS_HI_LMC_foreground_cube.fits"
 
-    core.write_rms_maps(filename)
-    core.reproj_rms_maps(filename, target_header, size)
-    core.stack_reproj_rms_maps(filename, target_header)
+    # core.write_rms_maps(filename)
+    # core.reproj_rms_maps(filename, target_header, size)
+    # core.stack_reproj_rms_maps(filename, target_header)
 
-    core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
-    core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
+    # core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
+    # core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
 
-    stop
-    
-    # field = core.stich_v(filename, target_header, size, ID=148, disk=disk, verbose=True, 
+    # field = core.stich_v(filename, target_header, size, ID=50, disk=disk, verbose=True, 
     #                      target_dv=target_dv, beam=beam)
-
-    stop
+    # field_norm = np.arcsinh(field/np.nanmax(field) * 50)
 
     core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
                    target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
     # core.match_sd(path_sd, fitsname_sd, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, 
     #               check=check, target_header=target_header, size=size, disk=disk, 
     #               ID_start=ID_start, ID_end=ID_end)
-    stop
-
-    field_norm = np.arcsinh(field/np.nanmax(field) * 50)
 
     stop
 
