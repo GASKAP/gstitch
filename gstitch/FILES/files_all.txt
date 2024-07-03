@@ -1,0 +1,11 @@
+release-v2.0/LMC-1/LMC-1_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-2/LMC-2_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-3/LMC-3_askap_parkes_PBC_K.fits
+release-v1.0/LMC-4/LMC_30Dor_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-5/LMC-5_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-6/LMC-6_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-7_anu/LMC-7_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-8/LMC-8_askap_parkes_PBC_K.fits
+release-v1.0/SMC/SMC_askap_parkes_PBC_K_full.fits
+release-v1.0/MG_Bridge/MG_Bridge_askap_parkes_PBC_K_full.fits
+release-v1.0/MG_Stream/MG_Stream_askap_parkes_PBC_K.fits

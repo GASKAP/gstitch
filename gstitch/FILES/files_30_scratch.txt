@@ -1,0 +1,8 @@
+tmp/PPV/30arcsec/SMC_askap_parkes_PBC_K_30.fits
+tmp/PPV/30arcsec/MG_Bridge_askap_parkes_PBC_K_full_30.fits
+tmp/PPV/30arcsec/MG_Stream_askap_parkes_PBC_K_30.fits
+tmp/PPV/30arcsec/LMC-2_askap_parkes_PBC_K_full_30.fits
+tmp/PPV/30arcsec/LMC3_askap_parkes_PBC_K_30.fits
+tmp/PPV/30arcsec/LMC_30Dor_askap_parkes_PBC_K_30.fits
+tmp/PPV/30arcsec/LMC-5_askap_parkes_PBC_K_full_30.fits
+tmp/PPV/30arcsec/SB38845_LMC_askap_parkes_PBC_K_full_30.fits

@@ -1,0 +1,5 @@
+tmp/PPV/45arcsec/LMC-2_askap_parkes_PBC_K_full_45.fits
+tmp/PPV/45arcsec/LMC_30Dor_askap_parkes_PBC_K_45.fits
+tmp/PPV/45arcsec/LMC-5_askap_parkes_PBC_K_full_45.fits
+tmp/PPV/45arcsec/SB38845_LMC_askap_parkes_PBC_K_full_45.fits
+tmp/PPV/45arcsec/LMC3_askap_parkes_PBC_K_45.fits

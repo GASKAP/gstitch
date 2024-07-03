@@ -1,0 +1,12 @@
+release-v1.0/SMC_fg/SMC_fg_askap_parkes_PBC_K_full.fits
+release-v1.0/MG_Bridge_fg/MG_Bridge_fg_askap_parkes_PBC_K_full.fits
+release-v1.0/MG_Stream_fg/MG_Stream_fg_askap_parkes_PBC_K.fits
+release-v2.0/LMC-1_fg/LMC-1_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-2_fg/LMC-2_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-3_fg/LMC-3_MW_askap_parkes_PBC_K.fits
+release-v2.0/LMC-4_fg/LMC-4_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-5_fg/LMC-5_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-6_fg/LMC-6_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-7_fg/LMC-7_fg_askap_parkes_PBC_K.fits
+release-v2.0/LMC-8_fg/LMC-8_fg_askap_parkes_PBC_K.fits
+release-v2.0/LMC-9_fg/LMC-9_fg_askap_parkes_PBC_K.fits

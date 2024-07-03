@@ -1,0 +1,6 @@
+release-v2.0/LMC-1_fg/LMC-1_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-2_fg/LMC-2_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-3_fg/LMC-3_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-4_fg/LMC-4_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-5_fg/LMC-5_fg_askap_parkes_PBC_K_full.fits
+release-v2.0/LMC-6_fg/LMC-6_fg_askap_parkes_PBC_K_full.fits
