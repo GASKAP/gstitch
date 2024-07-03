@@ -128,6 +128,57 @@ class stitch(object):
         return np.min(vmin), np.max(vmax)
 
 
+    def write_Tbmax_maps(self, filename):
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+        
+        for i in np.arange(len(fitsnames)):
+            #Load data
+            fitsname = fitsnames[i].split("/")[2]
+            print(fitsname)
+            hdu = fits.open(self.path + fitsnames[i])
+            hdr = hdu[0].header
+            cube = hdu[0].data
+            
+            #Calculate Tbmax map
+            Tbmax = np.nanmax(cube,0)
+            #Write Tbmax map
+            pathout=self.path+"tmp/Tbmax/"
+            hdu0 = fits.PrimaryHDU(Tbmax, header=hdr)
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(pathout + fitsname[:-5] + "_Tbmax.fits", overwrite=True)
+
+        
+    def reproj_Tbmax_maps(self, filename, target_header=None, size=None):
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+        
+        for i in np.arange(len(fitsnames)):
+            #Load data
+            fitsname = fitsnames[i].split("/")[2]
+            print(fitsname)
+            hdu = fits.open(self.path + "tmp/Tbmax/" + fitsname[:-5]+"_Tbmax.fits")
+            hdr = hdu[0].header
+            w = wcs2D(hdr)
+            Tbmax = hdu[0].data
+            #reproject                        
+            reproj_Tbmax, footprint = reproject_interp((Tbmax,w.to_header()), target_header, shape_out=size)
+
+            #write on disk
+            pathout=self.path+"tmp/Tbmax/reproj/"
+            hdu0 = fits.PrimaryHDU(reproj_Tbmax, header=target_header)
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(pathout + fitsname[:-5] + "_Tbmax_large.fits", overwrite=True)
+
+
     def write_rms_maps(self, filename):
         #Read fitsnames
         my_file = open(filename, "r")        
@@ -473,7 +524,7 @@ class stitch(object):
             hdr = hdu[0].header
             w = wcs2D(hdr)
             rms = hdu[0].data
-            rms[rms < 1.e-2] = np.nan ###############FIXME
+            # rms[rms < 1.e-2] = np.nan ###############FIXME RECHECK IF ERROR
             weight = 1./rms**2.
             weight[weight != weight] = 0.
             weights.append(weight)
@@ -495,7 +546,6 @@ class stitch(object):
 
             #Reproject                        
             rfield, footprint = reproject_interp((field,w.to_header()), target_header, shape_out=size)
-            # rfield = np.where(weights[i] != 0., rfield, np.nan)
             rfields.append(rfield)            
 
         wfields = np.array([weights[i]*rfields[i] for i in np.arange(len(fitsnames))])
@@ -512,7 +562,69 @@ class stitch(object):
         return cfield
 
 
-    def stich_all(self, filename, target_header=None, size=None, ID_start=None, ID_end=None, disk=False, 
+    def stich_Tbmax(self, filename=None, target_header=None, size=None, ID=None, disk=False, 
+                verbose=False, target_dv=None, beam=None):
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+
+        #Read fitsnames
+        my_file = open(filename, "r")        
+        # reading the file
+        data = my_file.read()
+        fitsnames = data.split("\n")[:-1]
+        my_file.close()
+        
+        weights = []
+        for i in np.arange(len(fitsnames)):
+            #Load data
+            fitsname = fitsnames[i].split("/")[2]
+            print(fitsname)
+            hdu = fits.open(self.path + "tmp/RMS/reproj/" + fitsname[:-5] + "_RMS_large.fits")
+            hdr = hdu[0].header
+            w = wcs2D(hdr)
+            rms = hdu[0].data
+            # rms[rms < 1.e-2] = np.nan ###############FIXME RECHECK IF ERROR
+            weight = 1./rms**2.
+            weight[weight != weight] = 0.
+            weights.append(weight)
+
+        rfields = []
+        for i in np.arange(len(fitsnames)):
+            fitsname = fitsnames[i].split("/")[2]
+            #Load data
+            fname = self.path + "tmp/Tbmax/reproj/" + fitsname[:-5] + "_Tbmax_large.fits"
+            if verbose == True: print("Opening ", fname)
+            hdu = fits.open(fname)
+            hdr = hdu[0].header
+            w = wcs2D(hdr)
+            if verbose == True: print("shape = ", hdu[0].data.shape)
+            if verbose == True: print("Stitching Tbmax...")
+            field = hdu[0].data
+            # field[field != field] = 0. #################FIXME
+
+            #Reproject                        
+            rfield, footprint = reproject_interp((field,w.to_header()), target_header, shape_out=size)
+            rfields.append(rfield)            
+
+        wfields = np.array([weights[i]*rfields[i] for i in np.arange(len(fitsnames))])
+        cfield = np.nansum(wfields,0) / np.nansum(weights,0)
+        # cfield[cfield == 0.] = np.nan
+            
+        if disk == True:
+            #Write on disk
+            pathout=self.path+"tmp/Tbmax/reproj/"
+            hdu0 = fits.PrimaryHDU(cfield, header=target_header)
+            hdulist = fits.HDUList([hdu0])
+            hdulist.writeto(pathout + "Tbmax_comined_GASKAP_MG_all.fits", overwrite=True)
+        
+        return cfield
+
+
+    def stich_all(self, filename, target_header=None, target_header_3D=None, size=None, ID_start=None, ID_end=None, disk=False, 
                   target_dv=None, beam=None, verbose=None, fileout=None, check=None):
         # #Read fitsnames avePB
         # my_file = open(filename_avePB, "r")        
@@ -545,11 +657,10 @@ class stitch(object):
             for k in np.arange(nv):
                 cube[k] = self.stich_v(filename, target_header, size, ID=ID_start+k, disk=disk, 
                                        verbose=verbose, target_dv=target_dv, beam=beam)
+                
         if disk == True:
             #Write on disk
-            ##########################################FIXME NEW HEADER
-            # pathout=self.path+"tmp/PPV/60arcsec/1kms/combined/"
-            hdu0 = fits.PrimaryHDU(cube, header=target_header) #FIXME 3D header
+            hdu0 = fits.PrimaryHDU(cube, header=target_header_3D)
             hdulist = fits.HDUList([hdu0])
             hdulist.writeto(fileout, overwrite=True)            
 
@@ -654,8 +765,9 @@ if __name__ == '__main__':
     path="/priv/myrtle1/gaskap/public_html/downloads/"
     core = stitch(hdr=None, path=path)
     #Regrid the data to 30' but Nyquist sampling
+    # filename="./FILES/files_LMC-fg.txt"
     filename="./FILES/files_LMC.txt"
-    # filename="./FILES/files_all_fg.txt"
+    # filename="./FILES/files_all_MG.txt"
         
     vmin, vmax = core.get_vrange(filename)
     print("vmin = ", vmin, "vmax = ", vmax)
@@ -663,8 +775,8 @@ if __name__ == '__main__':
     #START HERE
     #LMC only for GASKAP                                                                           
     c = SkyCoord(75.895*u.deg, -69.676*u.deg, frame="icrs")
-    reso = 0.00333333 * 2
-    sizex = int(5400 / 2); sizey = int(4500 / 2)
+    reso = 0.00333333 #This is 30'' devided by 2.5
+    sizex = int(5400); sizey = int(4500)
     target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
     target_header = target_wcs.to_header()
     size = (sizex,sizey)
@@ -673,39 +785,55 @@ if __name__ == '__main__':
     # glon = 287.7; glat = -38.7
     # c = SkyCoord(glon*u.deg, glat*u.deg, frame='galactic')
     # reso = 0.00333333 * 2
-    # sizex = int(5800 / 2); sizey = int(10200 / 2)
+    # sizex = int(6400 / 2); sizey = int(10200 / 2)
     # target_wcs = set_wcs(sizex, sizey, 'RA---TAN', 'DEC--TAN', reso, c.icrs.ra.value, c.icrs.dec.value)
     # target_header = target_wcs.to_header()
     # size = (sizex,sizey)
 
-    beam = 60*u.arcsec
+    beam = 30*u.arcsec
     target_dv = 1*u.km/u.s
     conv = True 
     verbose = False
     check = False #no computation, check only output write
     disk = True   #write output on disk
-    fileout = path + "tmp/PPV/60arcsec/1kms/combined/Tb_combined_LMC_full.fits" 
+    fileout = path + "tmp/PPV/30arcsec/1kms/combined/Tb_combined_LMC_full.fits" 
     v = np.arange(vmin,vmax+target_dv.value, target_dv.value)
     
     ID_start = 0
     ID_end = len(v)
+
+    #Define target_header_3D
+    target_header_3D = target_wcs.to_header()
+    target_header_3D["CRPIX3"] = 1
+    target_header_3D["CRVAL3"] = v[0] * 1.e3
+    target_header_3D["CDELT3"] = target_dv.value*1.e3
+    target_header_3D["WCSAXES"] = 3
+    target_header_3D["CTYPE3"] = "VELO-LSR"
+    target_header_3D["CUNIT3"] = "m/s"
     
     path_sd = "/priv/avatar/amarchal/GASS/data/"
     fitsname_sd = "GASS_HI_LMC_foreground_cube.fits"
+    
+    core.write_rms_maps(filename)
+    core.reproj_rms_maps(filename, target_header, size)
+    core.stack_reproj_rms_maps(filename, target_header)
+    # core.write_Tbmax_maps(filename)
+    # core.reproj_Tbmax_maps(filename, target_header, size)
 
-    # core.write_rms_maps(filename)
-    # core.reproj_rms_maps(filename, target_header, size)
-    # core.stack_reproj_rms_maps(filename, target_header)
+    # Tbmax = core.stich_Tbmax(filename, target_header, size, ID=0, disk=disk, verbose=True, 
+    #                      target_dv=target_dv, beam=beam)
 
     # core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
     # core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
 
-    # field = core.stich_v(filename, target_header, size, ID=50, disk=disk, verbose=True, 
+    # field = core.stich_v(filename, target_header, size, ID=50, disk=False, verbose=True, 
     #                      target_dv=target_dv, beam=beam)
     # field_norm = np.arcsinh(field/np.nanmax(field) * 50)
 
-    core.stich_all(filename, target_header, size, ID_start=ID_start, ID_end=ID_end, disk=disk, 
-                   target_dv=target_dv, beam=beam, verbose=verbose, fileout=fileout, check=check)
+    core.stich_all(filename, target_header, target_header_3D, size, ID_start=ID_start,
+                   ID_end=ID_end, disk=disk, target_dv=target_dv, beam=beam, verbose=verbose,
+                   fileout=fileout, check=check)
+
     # core.match_sd(path_sd, fitsname_sd, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, 
     #               check=check, target_header=target_header, size=size, disk=disk, 
     #               ID_start=ID_start, ID_end=ID_end)
