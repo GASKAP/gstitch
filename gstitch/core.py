@@ -792,7 +792,7 @@ if __name__ == '__main__':
 
     beam = 30*u.arcsec
     target_dv = 1*u.km/u.s
-    conv = True 
+    conv = True
     verbose = False
     check = False #no computation, check only output write
     disk = True   #write output on disk
@@ -813,23 +813,22 @@ if __name__ == '__main__':
     
     path_sd = "/priv/avatar/amarchal/GASS/data/"
     fitsname_sd = "GASS_HI_LMC_foreground_cube.fits"
-    
+
+    #Reproject noise
     core.write_rms_maps(filename)
     core.reproj_rms_maps(filename, target_header, size)
+    #Stack noise maps on single header
     core.stack_reproj_rms_maps(filename, target_header)
-    # core.write_Tbmax_maps(filename)
-    # core.reproj_Tbmax_maps(filename, target_header, size)
+    #Regrid spatially and spectrally
+    core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
+    core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
 
-    # Tbmax = core.stich_Tbmax(filename, target_header, size, ID=0, disk=disk, verbose=True, 
-    #                      target_dv=target_dv, beam=beam)
-
-    # core.regrid(filename, beam=beam, conv=conv, verbose=verbose, check=check)
-    # core.regrid_v(filename, target_dv=target_dv, vmin=vmin, vmax=vmax, beam=beam, check=check)
-
+    #Test for one channel map
     # field = core.stich_v(filename, target_header, size, ID=50, disk=False, verbose=True, 
     #                      target_dv=target_dv, beam=beam)
     # field_norm = np.arcsinh(field/np.nanmax(field) * 50)
 
+    #Stitch all channel maps
     core.stich_all(filename, target_header, target_header_3D, size, ID_start=ID_start,
                    ID_end=ID_end, disk=disk, target_dv=target_dv, beam=beam, verbose=verbose,
                    fileout=fileout, check=check)
@@ -882,3 +881,9 @@ if __name__ == '__main__':
     stop
     # core.reproj_avePB_maps(filename_avePB, target_header, size)
     # core.stack_reproj_avePB_maps(filename_avePB, target_header)
+
+        # core.write_Tbmax_maps(filename)
+    # core.reproj_Tbmax_maps(filename, target_header, size)
+
+    # Tbmax = core.stich_Tbmax(filename, target_header, size, ID=0, disk=disk, verbose=True, 
+    #                      target_dv=target_dv, beam=beam)
